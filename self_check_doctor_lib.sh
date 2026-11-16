@@ -175,14 +175,14 @@ to "section muestra el responsable" "  6. CUDA Toolkit  (→ nvidia-cuda-setup)"
    bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; BOLD=; NC=; section "6. CUDA Toolkit" nvidia-cuda-setup | sed -n 3p'
 to "section sin responsable queda igual" "  1. Sistema Operativo" \
    bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; BOLD=; NC=; section "1. Sistema Operativo" | sed -n 3p'
-for d in doctor_compresion.sh doctor_analitica.sh; do
+for d in doctor_compresion.sh doctor_analitica.sh doctor_visualizacion.sh; do
   while IFS= read -r linea; do
     [[ "$linea" == 'section "1. Sistema Operativo"' ]] && continue
     grep -qE '^section "[^"]+" "(nvidia-cuda-setup|workstation-dependencies|workstation-hardening)"$' <<<"$linea" \
       || { echo "   FALLA: $d sin responsable: $linea"; fallos=$((fallos+1)); }
   done < <(grep -E '^section "' "$d")
 done
-for d in doctor_compresion.sh doctor_analitica.sh; do
+for d in doctor_compresion.sh doctor_analitica.sh doctor_visualizacion.sh; do
   grep -qxF 'section "4. SSH y Firewall" "workstation-dependencies"' "$d" \
     || { echo "   FALLA: $d section 4 debe ser workstation-dependencies"; fallos=$((fallos+1)); }
 done
@@ -208,10 +208,10 @@ t "resumen usa 'Recomendadas ([AVISO])'" 0 grep -qF 'Recomendadas ([AVISO])' doc
 t "resumen usa 'Opcionales ([NOTA])'" 0 grep -qF 'Opcionales ([NOTA])' doctor_lib.sh
 t "resumen ya no dice 'criticos'" 1 grep -qi 'criticos' doctor_lib.sh
 t "leyenda de los cuatro niveles" 0 bash -c 'grep -q necesario doctor_lib.sh && grep -q recomendado doctor_lib.sh && grep -q opcional doctor_lib.sh'
-t "[AVISO] ya no lleva '(opcional)'" 1 bash -c 'grep -E "check_and_fix_warn " doctor_compresion.sh doctor_analitica.sh | grep -q "opcional"'
-t "ningun [AVISO] escrito a mano dice 'opcional'" 1 bash -c 'grep -E "WARN\}.*opcional" doctor_compresion.sh doctor_analitica.sh | grep -q .'
-t "ningun [NOTA] escrito a mano dice 'recomendado'" 1 bash -c 'grep -E "MINOR\}.*recomendado" doctor_compresion.sh doctor_analitica.sh | grep -q .'
-for d in doctor_compresion.sh doctor_analitica.sh; do
+t "[AVISO] ya no lleva '(opcional)'" 1 bash -c 'grep -E "check_and_fix_warn " doctor_compresion.sh doctor_analitica.sh doctor_visualizacion.sh | grep -q "opcional"'
+t "ningun [AVISO] escrito a mano dice 'opcional'" 1 bash -c 'grep -E "WARN\}.*opcional" doctor_compresion.sh doctor_analitica.sh doctor_visualizacion.sh | grep -q .'
+t "ningun [NOTA] escrito a mano dice 'recomendado'" 1 bash -c 'grep -E "MINOR\}.*recomendado" doctor_compresion.sh doctor_analitica.sh doctor_visualizacion.sh | grep -q .'
+for d in doctor_compresion.sh doctor_analitica.sh doctor_visualizacion.sh; do
   t "$d sale con el conteo de fallos, no de avisos" 0 grep -qF 'exit $((failed > 255 ? 1 : failed))' "$d"
 done
 
@@ -224,23 +224,26 @@ NOTA_COMUN=("htop instalado" "ncdu instalado" "tree instalado" "traceroute insta
             "libtinfo5 instalado")
 NOTA_COMPRESION=("Go instalado" "VSCode instalado" "Angry IP Scanner instalado"
                  "RustDesk instalado" "MongoDB Compass")
+NOTA_VISUALIZACION=("Go instalado" "VSCode instalado" "MongoDB Compass")
 NOTA_ANALITICA=("pandas instalado" "numpy instalado" "scikit-learn instalado"
                 "paho-mqtt instalado" "ultralytics instalado" "Node-RED instalado"
                 "Servicio nodered activo" "Servicio nodered habilitado al inicio")
-for d in doctor_compresion.sh doctor_analitica.sh; do
+for d in doctor_compresion.sh doctor_analitica.sh doctor_visualizacion.sh; do
   extra=("${NOTA_COMPRESION[@]}")
   [[ "$d" == doctor_analitica.sh ]] && extra=("${NOTA_ANALITICA[@]}")
+  [[ "$d" == doctor_visualizacion.sh ]] && extra=("${NOTA_VISUALIZACION[@]}")
   for desc in "${NOTA_COMUN[@]}" "${extra[@]}"; do
     # Si la linea del check no existe, el grep falla y eso tambien es un fallo.
-    grep -qF "check_and_fix_nota \"$desc" "$d" \
+    # Los bloques compartidos (Compass, EMQX...) viven en doctor_lib.sh.
+    grep -qF "check_and_fix_nota \"$desc" "$d" doctor_lib.sh \
       || { echo "   FALLA: $d: '$desc' no es check_and_fix_nota"; fallos=$((fallos+1)); }
-    grep -qF "check_and_fix \"$desc" "$d" \
+    grep -qF "check_and_fix \"$desc" "$d" doctor_lib.sh \
       && { echo "   FALLA: $d: '$desc' sigue como [FALLO]"; fallos=$((fallos+1)); }
-    grep -qF "check_and_fix_warn \"$desc" "$d" \
+    grep -qF "check_and_fix_warn \"$desc" "$d" doctor_lib.sh \
       && { echo "   FALLA: $d: '$desc' sigue como [AVISO]"; fallos=$((fallos+1)); }
   done
 done
-t "libtinfo5 ya no dice 'requerido en 24.04'" 1 grep -qF 'requerido en 24.04' doctor_compresion.sh doctor_analitica.sh
+t "libtinfo5 ya no dice 'requerido en 24.04'" 1 grep -qF 'requerido en 24.04' doctor_compresion.sh doctor_analitica.sh doctor_visualizacion.sh
 
 echo "11. --skip-* del perfil: lo que el instalador omitio no cuenta como [FALLO]"
 # workstation-dependencies pasa a su doctor los mismos --skip-* con que se corrio.
@@ -249,8 +252,11 @@ t "parse_args acepta --skip-emqx y --skip-mongodb" 0 bash -c 'source ./doctor_li
 t "parse_args acepta los demas --skip-* de los perfiles" 0 bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; parse_args --skip-snaps --skip-ml --skip-nodered --skip-mongo-auth'
 t "parse_args sigue rechazando un flag desconocido" 1 bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; parse_args --skip-inventado'
 t "doctor_lib define SKIP_EMQX y SKIP_MONGODB por defecto en false" 0 grep -qE '^SKIP_(EMQX|MONGODB)=false' doctor_lib.sh
-t "compresion omite el bloque EMQX con --skip-emqx" 0 grep -qF 'if $SKIP_EMQX; then' doctor_compresion.sh
-for d in doctor_compresion.sh doctor_analitica.sh; do
+t "doctor_lib omite el bloque EMQX con --skip-emqx" 0 grep -qF 'if $SKIP_EMQX; then' doctor_lib.sh
+for d in doctor_compresion.sh doctor_visualizacion.sh; do
+  t "$d usa el bloque EMQX compartido" 0 grep -qxF 'check_bloque_emqx' "$d"
+done
+for d in doctor_compresion.sh doctor_analitica.sh doctor_visualizacion.sh; do
   t "$d omite el bloque MongoDB con --skip-mongodb" 0 grep -qF 'if $SKIP_MONGODB; then' "$d"
 done
 
@@ -258,7 +264,7 @@ echo "12. libtinfo5: la etiqueta dice que es opcional y como se instala"
 # libtinfo5 es opcional (manual). La corrida por defecto ya no la instala: la
 # etiqueta nombra el flag y dice que solo hace falta si CUDA o una herramienta
 # antigua la pide. No debe presentarla como requisito del equipo.
-for d in doctor_compresion.sh doctor_analitica.sh; do
+for d in doctor_compresion.sh doctor_analitica.sh doctor_visualizacion.sh; do
   t "$d: libtinfo5 nombra el flag --libtinfo5" 0 grep -qF 'nvidia-cuda-setup --libtinfo5' "$d"
   t "$d: libtinfo5 dice que es opcional" 0 grep -qF 'opcional' "$d"
   t "$d: libtinfo5 no se presenta como requisito" 1 grep -qiE 'requerid|obligator' <(grep 'libtinfo5 instalado' "$d")
@@ -285,6 +291,221 @@ estado_mongo() {
 [[ "$(estado_mongo si --skip-mongodb)" == true ]] || { echo "   FALLA: --skip-mongodb no gana sobre una respuesta 'si'"; fallos=$((fallos+1)); }
 t "doctor_lib lee la ruta con WORKSTATION_CONF_DIR" 0 grep -qF 'WORKSTATION_CONF_DIR:-/etc/workstation' doctor_lib.sh
 t "doctor_lib lee el archivo mongodb" 0 grep -qF '/mongodb"' doctor_lib.sh
+
+echo "14. doctor_visualizacion.sh: solo lo que el perfil instala, con --skip-* honrados"
+# Perfil visualizacion: abre las interfaces web y mira el software. Lleva base,
+# MongoDB + Compass, EMQX, AnyDesk con override X11, Go y VS Code (snap). No lleva
+# GStreamer (runtime), RustDesk, Angry IP, stack ML ni Node-RED, ni abre RTSP/1880.
+# Se corre el doctor entero con sudo/ufw/ping/host falsos: sin root, sin red.
+t "doctor_visualizacion.sh existe" 0 test -f doctor_visualizacion.sh
+t "doctor_visualizacion.sh pasa bash -n" 0 bash -n doctor_visualizacion.sh
+STUBS="$TMP/stubs"
+mkdir -p "$STUBS"
+printf '#!/bin/sh\nexec "$@"\n' >"$STUBS/sudo"
+printf '#!/bin/sh\nexit 0\n' >"$STUBS/ping"
+cp "$STUBS/ping" "$STUBS/host"
+printf '#!/bin/sh\necho "Status: active"\nfor p in 22 27017 1883 18083 554 1880 80 443 6568 50001:50003; do echo "$p ALLOW Anywhere"; done\n' >"$STUBS/ufw"
+chmod +x "$STUBS"/*
+# doctor_salida <doctor> [flags...]: salida sin colores y el exit code en la ultima linea
+doctor_salida() {
+  local d="$1"; shift
+  PATH="$STUBS:$PATH" WORKSTATION_CONF_DIR="$TMP/sin_conf" timeout 120 bash "$d" "$@" </dev/null 2>&1 \
+    | sed 's/\x1b\[[0-9;]*m//g'
+  echo "RC=${PIPESTATUS[0]}"
+}
+VIZ_FULL=$(doctor_salida doctor_visualizacion.sh)
+VIZ_SKIP=$(doctor_salida doctor_visualizacion.sh --skip-mongodb --skip-emqx --skip-snaps)
+tiene() {  # tiene <esperado 0|1> <descripcion> <texto> <patron fijo>
+  local esperado="$1" desc="$2" texto="$3" patron="$4" rc=0
+  grep -qF -- "$patron" <<<"$texto" || rc=1
+  (( rc == esperado )) || { echo "   FALLA: $desc ('$patron')"; fallos=$((fallos+1)); }
+}
+for c in "Servicio mongod activo" "MongoDB Compass" "EMQX instalado" "Go instalado" \
+         "VSCode instalado" "AnyDesk con override X11" "Docker" "ffmpeg" "MQTTX"; do
+  tiene 0 "sin flags el doctor verifica" "$VIZ_FULL" "$c"
+done
+tiene 0 "--skip-mongodb avisa que omite MongoDB" "$VIZ_SKIP" "MongoDB omitido"
+tiene 0 "--skip-emqx avisa que omite EMQX" "$VIZ_SKIP" "EMQX omitido (--skip-emqx)"
+tiene 0 "--skip-snaps avisa que omite Go y VS Code" "$VIZ_SKIP" "(--skip-snaps)"
+for c in "Servicio mongod activo" "MongoDB Compass" "EMQX instalado" "Go instalado" "VSCode instalado"; do
+  tiene 1 "con --skip-* no se verifica" "$VIZ_SKIP" "$c"
+done
+tiene 0 "con --skip-* AnyDesk se sigue verificando" "$VIZ_SKIP" "AnyDesk con override X11"
+for c in "gst-launch" "RTSP" "Plugin base" "RustDesk" "Angry IP" "Node-RED" "pandas" "ultralytics" "(554)" "(1880)"; do
+  tiene 1 "visualizacion no verifica lo de otros perfiles" "$VIZ_FULL" "$c"
+done
+for c in "(22)" "(27017)" "(1883)" "(18083)" "(80)" "(443)" "(6568)" "(50001-50003)"; do
+  tiene 0 "puerto del perfil verificado" "$VIZ_FULL" "$c"
+done
+# Contrato de exit code: cantidad de [FALLO] (tope 1 si pasa de 255).
+for v in FULL SKIP; do
+  salida_v="VIZ_$v"
+  n=$(grep -c '^  \[FALLO\]' <<<"${!salida_v}")
+  rc_v=$(sed -n 's/^RC=//p' <<<"${!salida_v}")
+  (( n > 255 )) && n=1
+  [[ "$rc_v" == "$n" ]] || { echo "   FALLA: visualizacion ($v) sale con rc=$rc_v y tiene $n [FALLO]"; fallos=$((fallos+1)); }
+done
+t "visualizacion rechaza un flag desconocido" 1 bash doctor_visualizacion.sh --skip-inventado
+# Lo compartido con compresion se movio a doctor_lib.sh: compresion no cambia.
+COMP_FULL=$(doctor_salida doctor_compresion.sh)
+for c in "(554)" "(50001-50003)" "AnyDesk con override X11" "EMQX instalado" "MongoDB Compass"; do
+  tiene 0 "compresion conserva sus checks compartidos" "$COMP_FULL" "$c"
+done
+
+echo "15. UFW: puertos de lo omitido y deteccion del firewall activo"
+# Dos defectos del bloque de puertos: (1) --skip-mongodb / --skip-emqx dejaban el
+# doctor verificando (y con --fix abriendo) 27017/1883/18083 de un componente que
+# el equipo no tiene; (2) "grep -q active" tambien acepta "Status: inactive", asi
+# que un firewall inactivo se tomaba por activo; (3) si sudo no podia correr ufw, la
+# captura quedaba vacia y el doctor decia "UFW no activo" en silencio.
+# Sobre el idioma: ufw 0.36 (Ubuntu 22.04/24.04) no carga sus traducciones, asi que
+# hoy imprime "Status: active" en ingles. Igual se consulta con
+# "LANGUAGE=C LC_ALL=C sudo ufw status" por si una version de ufw que si traduce
+# ("Estado: activo") rompiera la deteccion: Python gettext lee LANGUAGE antes que
+# LC_ALL, por eso van las dos. sudo conserva LANGUAGE y LC_* por su tabla env_check,
+# y el comando que sudo compara con el sudoers sigue siendo ufw (con "sudo env"
+# seria env). El test se ancla a la linea de estado.
+STUBS15="$TMP/stubs15"
+mkdir -p "$STUBS15"
+# sudo falso como el de un sudoers que solo permite ufw: rechaza cualquier otro
+# comando y no toca el entorno (LANGUAGE=C y LC_ALL=C llegan a ufw). ufw falso: simula
+# un ufw que SI traduce: responde en espanol salvo que el idioma efectivo de los
+# mensajes sea C. El efectivo sigue la precedencia de Python gettext: LANGUAGE si no
+# esta vacio, si no LC_ALL, si no LC_MESSAGES, si no LANG. Registra cada regla que se
+# le pide abrir.
+printf '#!/bin/sh\n[ "$1" = ufw ] || exit 1\nexec "$@"\n' >"$STUBS15/sudo"
+cat >"$STUBS15/ufw" <<'EOF'
+#!/bin/sh
+efectivo=${LANGUAGE:-${LC_ALL:-${LC_MESSAGES:-$LANG}}}
+case "$1" in
+  status)
+    if [ "$UFW_FAKE" = inactive ]; then
+      [ "$efectivo" = C ] && echo "Status: inactive" || echo "Estado: inactivo"
+      exit 0
+    fi
+    [ "$efectivo" = C ] && echo "Status: active" || echo "Estado: activo"
+    for p in 22 27017 1883 18083 554 1880 80 443 6568 50001:50003; do echo "$p ALLOW Anywhere"; done
+    ;;
+  *) echo "$*" >>"$UFW_LOG" ;;
+esac
+EOF
+cp "$STUBS/ping" "$STUBS15/ping"; cp "$STUBS/ping" "$STUBS15/host"
+chmod +x "$STUBS15"/*
+
+# puertos_base <skip_mongodb> <skip_emqx>: check_puertos_ufw_base con --fix y un
+# UFW_STATUS vacio (falta todo). Imprime la salida y, despues, las reglas que se
+# intentaron abrir.
+puertos_base() {
+  local log="$TMP/ufw15.log"; : >"$log"
+  PATH="$STUBS15:$PATH" UFW_LOG="$log" bash -c '
+    source ./doctor_lib.sh >/dev/null 2>&1
+    SKIP_MONGODB=$1; SKIP_EMQX=$2; FIX_MODE=true; LOG_FILE=/dev/null
+    UFW_STATUS=""
+    check_puertos_ufw_base' _ "$1" "$2" 2>&1 | sed 's/\x1b\[[0-9;]*m//g'
+  echo "ABIERTOS: $(tr '\n' ' ' <"$log")"
+}
+B_NADA=$(puertos_base false false)
+B_MONGO=$(puertos_base true false)
+B_EMQX=$(puertos_base false true)
+B_AMBOS=$(puertos_base true true)
+tiene 0 "sin skips se verifica y abre 27017" "$B_NADA" "allow 27017/tcp"
+tiene 0 "sin skips se verifica y abre 1883" "$B_NADA" "allow 1883/tcp"
+tiene 0 "sin skips se verifica y abre 18083" "$B_NADA" "allow 18083/tcp"
+tiene 1 "--skip-mongodb no verifica 27017" "$B_MONGO" "(27017)"
+tiene 1 "--skip-mongodb no abre 27017" "$B_MONGO" "27017"
+tiene 0 "--skip-mongodb sigue con EMQX 1883" "$B_MONGO" "allow 1883/tcp"
+tiene 0 "--skip-mongodb sigue con EMQX 18083" "$B_MONGO" "allow 18083/tcp"
+tiene 1 "--skip-emqx no verifica 1883" "$B_EMQX" "(1883)"
+tiene 1 "--skip-emqx no verifica 18083" "$B_EMQX" "(18083)"
+tiene 1 "--skip-emqx no abre 1883" "$B_EMQX" "allow 1883/tcp"
+tiene 1 "--skip-emqx no abre 18083" "$B_EMQX" "allow 18083/tcp"
+tiene 0 "--skip-emqx sigue con MongoDB 27017" "$B_EMQX" "allow 27017/tcp"
+tiene 0 "ambos skips: SSH 22 se sigue verificando" "$B_AMBOS" "(22)"
+tiene 0 "ambos skips: SSH 22 se sigue abriendo" "$B_AMBOS" "allow ssh"
+tiene 1 "ambos skips: ningun puerto de MongoDB/EMQX" "$B_AMBOS" "(27017)"
+tiene 1 "ambos skips: ni 1883" "$B_AMBOS" "1883"
+tiene 1 "ambos skips: ni 18083" "$B_AMBOS" "18083"
+
+# ufw_esta_activo: solo la linea de estado "Status: active" vale.
+activo() {  # activo <estado>
+  bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; UFW_STATUS=$1; ufw_esta_activo' _ "$1" >/dev/null 2>&1
+}
+activo $'Status: active\n22 ALLOW Anywhere'    || { echo "   FALLA: 'Status: active' no se reconoce como activo"; fallos=$((fallos+1)); }
+activo $'Status: active (logging on)\nx'       || { echo "   FALLA: 'Status: active' con sufijo no se reconoce como activo"; fallos=$((fallos+1)); }
+! activo "Status: inactive"                    || { echo "   FALLA: 'Status: inactive' se toma por activo"; fallos=$((fallos+1)); }
+! activo ""                                    || { echo "   FALLA: un estado vacio se toma por activo"; fallos=$((fallos+1)); }
+! activo $'Status: inactive\n22 ALLOW active'  || { echo "   FALLA: 'active' en otra linea se toma por activo"; fallos=$((fallos+1)); }
+
+# ufw_capturar_estado: aunque el ufw traduzca (el falso responde "Estado: activo"),
+# con LANGUAGE/LC_ALL/LANG en espanol igual tiene que leer "Status: active". LANGUAGE
+# manda sobre LC_ALL, asi que se prueban las tres formas. sudo falso: solo deja pasar
+# ufw.
+ES='env -u LC_ALL LANG=es_ES.UTF-8 LANGUAGE=es'
+t "ufw_capturar_estado lee el estado en C con LANGUAGE=es (LC_ALL sin fijar)" 0 \
+  $ES PATH="$STUBS15:$PATH" bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; ufw_capturar_estado; ufw_esta_activo'
+t "ufw_capturar_estado lee el estado en C con LANGUAGE=es y LC_ALL=es_CL.UTF-8" 0 \
+  env LANGUAGE=es LC_ALL=es_CL.UTF-8 PATH="$STUBS15:$PATH" bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; ufw_capturar_estado; ufw_esta_activo'
+t "ufw_capturar_estado lee el estado en C con solo LC_ALL=es_CL.UTF-8" 0 \
+  env -u LANGUAGE LC_ALL=es_CL.UTF-8 PATH="$STUBS15:$PATH" bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; ufw_capturar_estado; ufw_esta_activo'
+t "ufw_capturar_estado con firewall inactivo no lo da por activo" 1 \
+  $ES PATH="$STUBS15:$PATH" UFW_FAKE=inactive bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; ufw_capturar_estado; ufw_esta_activo'
+# sudo que rechaza todo (no puede correr ufw): la captura queda vacia.
+STUBS15F="$TMP/stubs15f"
+mkdir -p "$STUBS15F"
+cp "$STUBS15"/* "$STUBS15F"/
+printf '#!/bin/sh\nexit 1\n' >"$STUBS15F/sudo"
+t "ufw_capturar_estado con sudo fallido deja la captura vacia" 0 \
+  env PATH="$STUBS15F:$PATH" bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; ufw_capturar_estado; [ -z "$UFW_STATUS" ]'
+
+# ufw_informar_no_activo: solo con ufw instalado y la captura vacia avisa que no
+# pudo leer; el resto es el "UFW no activo" de siempre. Sin ufw: PATH sin nada.
+informar() {  # informar <PATH> <UFW_STATUS>: salida y contadores
+  env PATH="$1" "$BASH" -c '
+    source ./doctor_lib.sh >/dev/null 2>&1
+    UFW_STATUS=$1; ufw_informar_no_activo
+    echo "WARNINGS=$warnings TOTAL=$total"' _ "$2" 2>&1 | sed 's/\x1b\[[0-9;]*m//g'
+}
+mkdir -p "$TMP/vacio"
+I_SIN_UFW=$(informar "$TMP/vacio" "")
+I_VACIA=$(informar "$STUBS15:$PATH" "")
+I_INACT=$(informar "$STUBS15:$PATH" "Status: inactive")
+tiene 0 "sin ufw instalado: UFW no activo" "$I_SIN_UFW" "UFW no activo"
+tiene 1 "sin ufw instalado: no avisa de lectura" "$I_SIN_UFW" "No se pudo leer"
+tiene 0 "sin ufw instalado: no cuenta aviso" "$I_SIN_UFW" "WARNINGS=0"
+tiene 0 "ufw sin captura: avisa que no pudo leer" "$I_VACIA" "[AVISO] No se pudo leer el estado de UFW"
+tiene 1 "ufw sin captura: no dice UFW no activo" "$I_VACIA" "UFW no activo"
+tiene 0 "ufw sin captura: cuenta un aviso" "$I_VACIA" "WARNINGS=1 TOTAL=1"
+tiene 0 "ufw inactivo: UFW no activo" "$I_INACT" "UFW no activo"
+tiene 1 "ufw inactivo: no avisa de lectura" "$I_INACT" "No se pudo leer"
+
+# Los tres doctores completos, con sudo falso y un ufw falso que traduce, en un
+# sistema en espanol (LANGUAGE=es).
+doctor_es() { ( unset LC_ALL; export LANG=es_ES.UTF-8 LANGUAGE=es; doctor_salida "$@" ); }
+STUBS_ANT="$STUBS"; STUBS="$STUBS15"
+for d in doctor_compresion.sh doctor_analitica.sh doctor_visualizacion.sh; do
+  S_ACT=$(doctor_es "$d")
+  tiene 0 "$d: firewall activo (ufw traducido, sistema en espanol) verifica los puertos" "$S_ACT" "Verificando reglas de firewall"
+  tiene 1 "$d: firewall activo no dice 'UFW no activo'" "$S_ACT" "UFW no activo"
+  tiene 1 "$d: firewall activo no avisa que no pudo leer" "$S_ACT" "No se pudo leer el estado de UFW"
+  S_INA=$(UFW_FAKE=inactive doctor_es "$d")
+  tiene 0 "$d: firewall inactivo omite los puertos" "$S_INA" "UFW no activo"
+  tiene 1 "$d: firewall inactivo no verifica puertos" "$S_INA" "Verificando reglas de firewall"
+  STUBS="$STUBS15F"
+  S_SUDO=$(doctor_salida "$d")
+  STUBS="$STUBS15"
+  tiene 0 "$d: sudo sin poder correr ufw avisa que no pudo leer" "$S_SUDO" "[AVISO] No se pudo leer el estado de UFW"
+  tiene 1 "$d: sudo sin poder correr ufw no dice 'UFW no activo'" "$S_SUDO" "UFW no activo"
+  tiene 1 "$d: sudo sin poder correr ufw no verifica puertos" "$S_SUDO" "Verificando reglas de firewall"
+done
+A_SKIP=$(doctor_salida doctor_analitica.sh --skip-mongodb)
+tiene 1 "analitica con --skip-mongodb no verifica el puerto 27017" "$A_SKIP" "(27017)"
+tiene 0 "analitica con --skip-mongodb sigue verificando 1880" "$A_SKIP" "(1880)"
+C_SKIP=$(doctor_salida doctor_compresion.sh --skip-mongodb --skip-emqx)
+for p in "(27017)" "(1883)" "(18083)"; do
+  tiene 1 "compresion con --skip-mongodb --skip-emqx no verifica" "$C_SKIP" "$p"
+done
+tiene 0 "compresion con skips sigue verificando RTSP 554" "$C_SKIP" "(554)"
+STUBS="$STUBS_ANT"
 
 if (( fallos == 0 )); then
   echo "OK: todos los self-checks pasaron"

@@ -1677,7 +1677,7 @@ esac
 
 ## 12. Doctor Verification Scripts
 
-> **Note:** The doctor scripts verify that all required workstation components are installed correctly and can optionally install missing components automatically. There are two variants depending on the workstation type.
+> **Note:** The doctor scripts verify that all required workstation components are installed correctly and can optionally install missing components automatically. There are three variants depending on the workstation type.
 
 ### Files
 
@@ -1686,6 +1686,7 @@ esac
 | `doctor_lib.sh` | Shared library with verification, installation, and summary functions. Do not run it directly. |
 | `doctor_compresion.sh` | Verifies and installs components for **compression** workstations (sections 3-6). |
 | `doctor_analitica.sh` | Verifies and installs components for **analytics** workstations (sections 3-5 and 7). |
+| `doctor_visualizacion.sh` | Verifies and installs components for **visualization** workstations (sections 3-6, without the video stack). |
 | `self_check_doctor_lib.sh` | Exercises `doctor_lib.sh`'s network checks against fake trees in a tmpdir. Touches nothing on the system; use it to validate library changes before shipping them to a machine. |
 | `nic_lib.sh` | Shared library holding the canonical knowledge about Realtek 2.5GbE NICs: revisions/XID, minimum driver version, `.ko` validation, and the two diagnostic rules (driver and stalled chip). Not run directly. |
 | `diag-nic.sh` | Layered diagnosis of **one** network port. Read-only plus a capture; changes no configuration. |
@@ -1849,15 +1850,17 @@ repairs a timer someone disabled by hand.
 
 #### Verify only (install nothing)
 ```bash
-chmod +x doctor_compresion.sh doctor_analitica.sh doctor_lib.sh
+chmod +x doctor_compresion.sh doctor_analitica.sh doctor_visualizacion.sh doctor_lib.sh
 ./doctor_compresion.sh      # For compression workstations
 ./doctor_analitica.sh       # For analytics workstations
+./doctor_visualizacion.sh   # For visualization workstations
 ```
 
 #### Verify and install missing components automatically
 ```bash
 ./doctor_compresion.sh --fix
 ./doctor_analitica.sh --fix
+./doctor_visualizacion.sh --fix
 ```
 
 With `--fix`, the script:
@@ -1937,8 +1940,17 @@ In the summary:
 - Python 3, pip3, and ML libraries (pandas, numpy, scikit-learn, paho-mqtt, ultralytics)
 - Ports: 27017 (MongoDB), 1880 (Node-RED)
 
+#### Visualization only (`doctor_visualizacion.sh`)
+- Workstation that opens the web UIs and views the software; it carries dev tools in case they are needed on site
+- MongoDB and MongoDB Compass (no authorization), EMQX, MQTTX, Docker, ffmpeg, AnyDesk with its X11 override, Golang and Visual Studio Code
+- No GStreamer (runtime), RustDesk, Angry IP, ML stack or Node-RED
+- Accepts `--skip-mongodb`, `--skip-emqx` and `--skip-snaps`: what was skipped is reported as `[INFO]`, not `[FALLO]`; the matching firewall ports are not checked (or opened with `--fix`) either: 27017 with `--skip-mongodb`, 1883 and 18083 with `--skip-emqx`
+- Ports: 22 (SSH), 27017 (MongoDB), 1883 and 18083 (EMQX), AnyDesk (80, 443, 6568, 50001-50003/udp); no RTSP 554 or Node-RED 1880
+
 ### Troubleshooting
 - **The script fails to start:** Verify that `doctor_lib.sh` is in the same directory.
+- **"UFW not active, skipping port verification":** ufw 0.36 (Ubuntu 22.04/24.04) does not load its translations, so its output is in English today. The doctors still read it with `LANGUAGE=C LC_ALL=C` (`LANGUAGE=C LC_ALL=C sudo ufw status`), so a ufw build that does translate (`Estado: activo`) cannot break the detection, and only a `Status: active` line counts as active. `Status: inactive` skips the port checks; enable UFW (Section 3) for them to run.
+- **"[AVISO] No se pudo leer el estado de UFW" (could not read the UFW status):** `ufw` is installed but `sudo ufw status` failed (your user has no sudo permission for `ufw`, or sudo asked for a password), so it is unknown whether the firewall is active and the ports go unchecked. Run `sudo ufw status` by hand to see the error. It is a warning and does not change the exit code.
 - **`--fix` does not install something:** Review the log in `/tmp/doctor_fix_*.log` for the exact error.
 - **Python package not detected:** The script uses `pip3 show`, which is more robust than `import`. If it fails, verify with `pip3 list | grep <package>`.
 - **NVIDIA module not detected:** The script checks through `lsmod`, `/proc/driver/nvidia/version`, and `nvidia-smi` as fallback. If all fail, verify that the driver is installed correctly.
