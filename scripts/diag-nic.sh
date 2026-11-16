@@ -184,6 +184,7 @@ if command_exists dkms; then
   DKMS_OUT=$(dkms status 2>/dev/null || true)
   if [[ -n "$DKMS_OUT" ]]; then
     info "Estado DKMS del equipo:"
+    # shellcheck disable=SC2001  # prefijar cada linea: sed es mas claro que la expansion de bash
     sed 's/^/    /' <<<"$DKMS_OUT" | tee -a "$LOGFILE"
   else
     info "Sin modulos DKMS registrados (normal si todos los drivers son in-kernel)"
@@ -233,7 +234,7 @@ irq_now() {
 info "Muestreo corto (4 muestras cada 3s) para ver actividad inmediata..."
 declare -a RX_SAMPLES
 RX_SAMPLES[0]=$(rx_now)
-for i in 1 2 3; do sleep 3; RX_SAMPLES[$i]=$(rx_now); done
+for i in 1 2 3; do sleep 3; RX_SAMPLES[i]=$(rx_now); done
 info "rx_packets (t=0,3,6,9s): ${RX_SAMPLES[0]} ${RX_SAMPLES[1]} ${RX_SAMPLES[2]} ${RX_SAMPLES[3]}"
 
 # La ventana LARGA es la que vale: arranca aca y se cierra despues de la
@@ -586,6 +587,7 @@ if [[ -d /etc/netplan ]]; then
     f_warn PERSIST "Sin cobertura de netplan para ${IFACE}: depende de un perfil autogenerado de NM (ver 7.2)"
   else
     info "Archivos netplan que mencionan ${IFACE}:"
+    # shellcheck disable=SC2001  # idem: prefijo por linea
     sed 's/^/    /' <<<"$NETPLAN_FILES" | tee -a "$LOGFILE"
 
     if [[ "$NETPLAN_FILE_COUNT" -gt 1 ]]; then

@@ -56,8 +56,10 @@ SKIP_MONGO_AUTH=false
 MONGODB_COMPASS_VERSION="1.49.15"
 MONGODB_COMPASS_URL="https://downloads.mongodb.com/compass/mongodb-compass_${MONGODB_COMPASS_VERSION}_amd64.deb"
 IPSCAN_VERSION="3.9.1"
+# shellcheck disable=SC2034  # la consume doctor_compresion.sh al sourcear esta libreria
 IPSCAN_URL="https://github.com/angryip/ipscan/releases/download/${IPSCAN_VERSION}/ipscan_${IPSCAN_VERSION}_amd64.deb"
 RUSTDESK_VERSION="1.2.3"
+# shellcheck disable=SC2034  # la consume doctor_compresion.sh al sourcear esta libreria
 RUSTDESK_URL="https://github.com/rustdesk/rustdesk/releases/download/${RUSTDESK_VERSION}/rustdesk-${RUSTDESK_VERSION}-x86_64.deb"
 MQTTX_VERSION="1.13.1"
 # shellcheck disable=SC2034  # lo consume doctor_visualizacion.sh
@@ -68,6 +70,9 @@ MQTTX_URL="https://github.com/emqx/MQTTX/releases/download/v${MQTTX_VERSION}/MQT
 # =============================================================================
 parse_args() {
     while [[ $# -gt 0 ]]; do
+        # shellcheck disable=SC2034  # SKIP_* los consultan los doctores de perfil;
+        # --skip-ml, --skip-nodered y --skip-mongo-auth se aceptan por compatibilidad
+        # con los instaladores .deb y hoy ningun doctor los consulta.
         case "$1" in
             --fix)
                 FIX_MODE=true
@@ -104,6 +109,7 @@ parse_args() {
 
         # Actualizar índice de paquetes una vez
         echo -e "  ${INFO} Actualizando índice de paquetes..."
+        # shellcheck disable=SC2024  # LOG_FILE es del usuario: la redireccion sin sudo es intencional
         sudo apt-get update >> "$LOG_FILE" 2>&1
     fi
 }
@@ -721,7 +727,8 @@ compass_al_dia() {
 
 fix_deb_url() {
     local url="$1"
-    local deb_file="/tmp/$(basename "$url")"
+    local deb_file
+    deb_file="/tmp/$(basename "$url")"
     wget -q -O "$deb_file" "$url" && \
     sudo apt-get install -y "$deb_file" && \
     rm -f "$deb_file"
@@ -742,8 +749,11 @@ ubuntu_base_version() {
     # $1: raíz alternativa para los self-checks; vacío = el sistema real
     local root="${1:-}" id="" ver="" codename="" up_id up_rel
     if [ -r "$root/etc/os-release" ]; then
+        # shellcheck source=/dev/null  # ruta dinamica: el sistema real o un arbol falso del self-check
         id=$(. "$root/etc/os-release" 2>/dev/null; echo "${ID:-}")
+        # shellcheck source=/dev/null
         ver=$(. "$root/etc/os-release" 2>/dev/null; echo "${VERSION_ID:-}")
+        # shellcheck source=/dev/null
         codename=$(. "$root/etc/os-release" 2>/dev/null; echo "${UBUNTU_CODENAME:-}")
     fi
     if [ "$id" = "ubuntu" ] && [ -n "$ver" ]; then

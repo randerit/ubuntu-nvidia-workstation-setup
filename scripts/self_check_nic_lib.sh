@@ -6,6 +6,8 @@
 #
 # Los escenarios A a I son los casos de terreno que estas reglas tienen que
 # resolver bien; estan numerados igual que en la Seccion 12 del manual.
+# shellcheck disable=SC2016  # los comandos de bash -c van entre comillas simples a proposito:
+#   se expanden en el subshell que los ejecuta, no aqui.
 set -uo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1

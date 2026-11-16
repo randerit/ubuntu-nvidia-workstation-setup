@@ -293,6 +293,7 @@ if [[ $NEEDS_R8125 -eq 1 ]]; then
     fi
 
     # Obtener el .deb del driver: primero local, si no hay y hay red -> GitHub
+    # shellcheck disable=SC2012  # nombres controlados (realtek-r8125-dkms_*.deb); sort -V ordena versiones
     DEB=$(ls -1 "$DEB_DIR"/realtek-r8125-dkms_*.deb 2>/dev/null | sort -V | tail -n1 || true)
     if [[ -z "$DEB" && $ONLINE_GH -eq 1 ]]; then
         log "No hay deb local del driver; descargando desde GitHub..."
@@ -344,6 +345,7 @@ if [[ $NEEDS_R8125 -eq 1 ]]; then
     DKMS_LINE=$(dkms status 2>/dev/null | grep -E '^(realtek-)?r8125[/,]' | head -n1 || true)
     if [[ -z "$DKMS_LINE" && $DRY_RUN -eq 0 ]]; then
         # dpkg fallo antes de registrar: agregar el source manualmente
+        # shellcheck disable=SC2012  # glob de nombres de dkms; sort -V elige la version mas nueva
         SRC_DIR=$(ls -d /usr/src/*r8125-* 2>/dev/null | sort -V | tail -n1 || true)
         [[ -n "$SRC_DIR" ]] || die "dkms no registro el modulo y no hay source *r8125* en /usr/src. Revisar $LOG_FILE."
         SRC_BASE=$(basename "$SRC_DIR")               # ej: realtek-r8125-9.016.01
@@ -379,6 +381,7 @@ if [[ $NEEDS_R8125 -eq 1 ]]; then
         KO=$(r8125_ko_path "$TARGET_KVER")
         if [[ -z "$KO" ]]; then
             log "DIAGNOSTICO: contenido de /lib/modules/$TARGET_KVER:"
+            # shellcheck disable=SC2012  # listado para el log de diagnostico, no se parsea
             ls -la "/lib/modules/$TARGET_KVER/" 2>&1 | tee -a "$LOG_FILE" || true
             die "No existe r8125.ko para $TARGET_KVER. NO REINICIAR: el equipo quedaria sin red en 6.8."
         fi
@@ -696,6 +699,7 @@ if [[ -n "$HWE_PKGS" ]]; then
     for p in $HWE_PKGS; do
         run "echo '$p hold' | dpkg --set-selections"
     done
+    # shellcheck disable=SC2086  # sin comillas a proposito: colapsa saltos de linea y espacios en el log
     log "Paquetes en hold: $(echo $HWE_PKGS | tr '\n' ' ')"
 else
     log "No hay paquetes HWE instalados que poner en hold."
@@ -956,6 +960,7 @@ if [[ $REQUIRED_R8125 -eq 1 ]]; then
     log "--- FASE 4: Verificando persistencia de red para la interfaz r8125 ---"
 
     for pci in $PCI_ADDRS; do
+        # shellcheck disable=SC2012  # nombre de interfaz en sysfs: solo [a-z0-9]
         NP_IFACE=$(ls "/sys/bus/pci/devices/$pci/net/" 2>/dev/null | head -n1 || true)
         if [[ -z "$NP_IFACE" ]]; then
             log "  $pci: sin interfaz de red asociada actualmente. Se omite (revisar tras el reboot)."

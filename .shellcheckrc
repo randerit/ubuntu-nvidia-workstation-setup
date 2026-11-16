@@ -1,0 +1,3 @@
+# Opciones de shellcheck para el repo (ver docs/pruebas-manuales.md)
+external-sources=true
+source-path=SCRIPTDIR

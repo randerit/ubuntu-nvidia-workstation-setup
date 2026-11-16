@@ -2,6 +2,9 @@
 # Self-check de los chequeos de red de doctor_lib.sh (Sección 14 Caso C).
 # No toca el sistema: arma árboles falsos en un tmpdir. Correr desde el repo:
 #   ./scripts/self_check_doctor_lib.sh
+# shellcheck disable=SC2032  # sudo() es un doble de prueba a proposito: la libreria llama a `sudo` y el self-check lo reemplaza
+# shellcheck disable=SC2016  # los comandos de bash -c / eval van entre comillas simples a proposito:
+#   se expanden en el subshell que los ejecuta, no aqui.
 set -uo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
@@ -152,6 +155,7 @@ echo
 echo "7. libtinfo5_url"
 # El pool de security borra las versiones superadas: la URL fija a
 # 6.3-2ubuntu0.1 dio 404 cuando salió la 0.3 y el --fix no instalaba nada.
+# shellcheck disable=SC2329  # la invoca libtinfo5_url (doctor_lib.sh), no este archivo
 wget() {  # índice falso del pool; solo responde a la descarga del índice
   case "$*" in *qO-*) printf '%b' "$INDICE" ;; esac
 }
@@ -441,12 +445,14 @@ activo $'Status: active (logging on)\nx'       || { echo "   FALLA: 'Status: act
 # manda sobre LC_ALL, asi que se prueban las tres formas. sudo falso: solo deja pasar
 # ufw.
 ES='env -u LC_ALL LANG=es_ES.UTF-8 LANGUAGE=es'
+# shellcheck disable=SC2086  # $ES sin comillas a proposito: se expande a `env -u ... VAR=...`
 t "ufw_capturar_estado lee el estado en C con LANGUAGE=es (LC_ALL sin fijar)" 0 \
   $ES PATH="$STUBS15:$PATH" bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; ufw_capturar_estado; ufw_esta_activo'
 t "ufw_capturar_estado lee el estado en C con LANGUAGE=es y LC_ALL=es_CL.UTF-8" 0 \
   env LANGUAGE=es LC_ALL=es_CL.UTF-8 PATH="$STUBS15:$PATH" bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; ufw_capturar_estado; ufw_esta_activo'
 t "ufw_capturar_estado lee el estado en C con solo LC_ALL=es_CL.UTF-8" 0 \
   env -u LANGUAGE LC_ALL=es_CL.UTF-8 PATH="$STUBS15:$PATH" bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; ufw_capturar_estado; ufw_esta_activo'
+# shellcheck disable=SC2086  # idem: $ES se expande a propósito
 t "ufw_capturar_estado con firewall inactivo no lo da por activo" 1 \
   $ES PATH="$STUBS15:$PATH" UFW_FAKE=inactive bash -c 'source ./doctor_lib.sh >/dev/null 2>&1; ufw_capturar_estado; ufw_esta_activo'
 # sudo que rechaza todo (no puede correr ufw): la captura queda vacia.
