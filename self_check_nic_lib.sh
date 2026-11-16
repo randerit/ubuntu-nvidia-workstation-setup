@@ -47,8 +47,8 @@ rc "6.11.0-9-generic no es GA 6.8"  1 nic_kernel_is_ga68 "6.11.0-9-generic"
 rc "6.80.0-1-generic no es GA 6.8"  1 nic_kernel_is_ga68 "6.80.0-1-generic"
 
 echo "2. nic_xid_map / nic_xid_for_pci"
-DMESG='r8169 0000:06:00.0 eth0: RTL8168h/8111h, 74:fe:ce:4e:b5:9a, XID 541, IRQ 158
-r8169 0000:07:00.0 eth1: RTL8125B, 10:7c:61:45:e0:18, XID 641, IRQ 161
+DMESG='r8169 0000:06:00.0 eth0: RTL8168h/8111h, 00:00:5e:00:53:01, XID 541, IRQ 158
+r8169 0000:07:00.0 eth1: RTL8125B, 00:00:5e:00:53:02, XID 641, IRQ 161
 r8169 0000:0d:00.0 eth2: unknown chip XID 688'
 MAP=$(nic_xid_map "$DMESG")
 eq "XID del 8125B por direccion PCI" "641" "$(nic_xid_for_pci 0000:07:00.0 "$MAP")"

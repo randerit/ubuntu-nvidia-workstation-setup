@@ -95,7 +95,7 @@ nic_pci_id() {
 #--------------------------- Revision / XID -----------------------------------
 
 # El propio r8169 imprime direccion PCI y XID en la misma linea:
-#   r8169 0000:07:00.0 eth1: RTL8125B, 10:7c:61:45:e0:18, XID 641, IRQ 161
+#   r8169 0000:07:00.0 eth1: RTL8125B, 00:00:5e:00:53:02, XID 641, IRQ 161
 # Emite una linea "<pci> <xid>" por device. Sin pipe a grep -q en ningun lado:
 # bajo pipefail eso mata al productor con SIGPIPE (141) y da falso negativo.
 nic_xid_map() {
