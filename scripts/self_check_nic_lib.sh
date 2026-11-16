@@ -2,7 +2,7 @@
 # Self-check de nic_lib.sh y de las reglas de diagnostico de diag-nic.sh.
 # No toca el sistema, no necesita root, no necesita hardware: arma arboles
 # falsos en un tmpdir y llama a las funciones puras. Correr desde el repo:
-#   ./self_check_nic_lib.sh
+#   ./scripts/self_check_nic_lib.sh
 #
 # Los escenarios A a I son los casos de terreno que estas reglas tienen que
 # resolver bien; estan numerados igual que en la Seccion 12 del manual.

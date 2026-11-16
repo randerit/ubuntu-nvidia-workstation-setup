@@ -5,8 +5,8 @@
 # Basado en las secciones 3-5 y 7 de la guía de configuración.
 #
 # Uso:
-#   ./doctor_analitica.sh          Solo verificar
-#   ./doctor_analitica.sh --fix    Verificar e instalar faltantes
+#   ./scripts/doctor_analitica.sh          Solo verificar
+#   ./scripts/doctor_analitica.sh --fix    Verificar e instalar faltantes
 # =============================================================================
 
 set -uo pipefail
@@ -224,7 +224,7 @@ if $SKIP_MONGODB; then
 else
     check_manual "Kernel compatible con MongoDB 8 (fuera de 6.19-7.0.13)" \
         "check_kernel_mongodb_ok" \
-        "Kernel $(uname -r) bloquea el arranque de mongod (SERVER-121912). Aplica la Sección 14 del README: arrancar en un kernel anterior a 6.19 (el 6.8 GA, o el 6.11/6.14 si el equipo ya lo tiene)."
+        "Kernel $(uname -r) bloquea el arranque de mongod (SERVER-121912). Aplica la Sección 14 (docs/14-runbook-mongodb8-kernel.md): arrancar en un kernel anterior a 6.19 (el 6.8 GA, o el 6.11/6.14 si el equipo ya lo tiene)."
 fi
 check_manual "Pin del kernel persistente (bloquea 6.19+)" \
     "check_kernel_pin" \

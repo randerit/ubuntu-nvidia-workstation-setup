@@ -20,7 +20,7 @@
 # sourcean esta libreria, no la libreria misma.
 # shellcheck disable=SC2034,SC2120
 
-# --- Constantes canonicas (fuente: README.md Seccion 9 y Seccion 14 Caso C) ---
+# --- Constantes canonicas (fuente: docs/09-redes-placas-nuevas.md y docs/14-runbook-mongodb8-kernel.md, Caso C) ---
 
 # Primera version del driver del fabricante con soporte RTL8125D. El r8125-dkms
 # de noble es 9.011.00 y NO la cubre: su switch de deteccion llega hasta la

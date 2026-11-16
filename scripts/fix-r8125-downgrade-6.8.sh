@@ -22,7 +22,7 @@
 #   - grub-reboot (arranque one-shot seguro) hacia 6.8
 #
 # USO:
-#   sudo ./fix-r8125-downgrade-6.8.sh [--dry-run]
+#   sudo ./scripts/fix-r8125-downgrade-6.8.sh [--dry-run]
 #
 # REQUISITO OFFLINE: dejar el .deb del driver en $DEB_DIR antes de ejecutar:
 #   realtek-r8125-dkms_9.016.01-1_amd64.deb (o superior, minimo 9.014.01)
@@ -170,8 +170,8 @@ NATIVE_REJECT_XIDS="$NIC_XID_8125D"          # 688, definido en nic_lib.sh
 OVERRIDE_XIDS="${NIC_OVERRIDE_XIDS:-641}"
 
 # NOTA SOBRE OVERRIDE_XIDS="641" - CONTRADICCION ABIERTA CON EL MANUAL
-#   El manual (Seccion 9 y Seccion 14 Caso C) y el gate de nvidia-cuda-setup
-#   tratan el XID 641 (RTL8125B) como una revision que el r8169 del GA 6.8
+#   El manual (docs/09-redes-placas-nuevas.md y docs/14-runbook-mongodb8-kernel.md,
+#   Caso C) y el gate de nvidia-cuda-setup tratan el XID 641 (RTL8125B) como una revision que el r8169 del GA 6.8
 #   maneja bien; --skip-nic-check la cita explicitamente como el caso seguro.
 #   Aca esta catalogada como necesitando r8125 por evidencia de campo.
 #
@@ -186,7 +186,7 @@ OVERRIDE_XIDS="${NIC_OVERRIDE_XIDS:-641}"
 #   reboot, y los doctor verifican DKMS contra el kernel en ejecucion.
 #
 #   Para desactivarlo en un equipo puntual, sin editar el script:
-#     sudo NIC_OVERRIDE_XIDS="" ./fix-r8125-downgrade-6.8.sh
+#     sudo NIC_OVERRIDE_XIDS="" ./scripts/fix-r8125-downgrade-6.8.sh
 
 xid_in_list() {
     local needle=" $1 " hay=" $2 "

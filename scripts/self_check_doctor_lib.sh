@@ -1,7 +1,7 @@
 #!/bin/bash
 # Self-check de los chequeos de red de doctor_lib.sh (Sección 14 Caso C).
 # No toca el sistema: arma árboles falsos en un tmpdir. Correr desde el repo:
-#   ./self_check_doctor_lib.sh
+#   ./scripts/self_check_doctor_lib.sh
 set -uo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1

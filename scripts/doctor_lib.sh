@@ -2,7 +2,7 @@
 # =============================================================================
 # Librería Compartida - Scripts Doctor
 # Funciones comunes de verificación e instalación.
-# Uso: source doctor_lib.sh (desde un doctor de perfil)
+# Uso: source scripts/doctor_lib.sh (desde un doctor de perfil)
 # =============================================================================
 
 # --- Colores y símbolos ---
@@ -635,7 +635,7 @@ check_nvidia_gpu() {
 
 # MongoDB 8 se niega a arrancar en kernels 6.19 - 7.0.13 (SERVER-121912).
 # El guard de MongoDB lee el string de uname, no el sublevel upstream real, así que
-# comparamos exactamente lo mismo que mira MongoDB. Ver Sección 14 del README.
+# comparamos exactamente lo mismo que mira MongoDB. Ver docs/14-runbook-mongodb8-kernel.md (Sección 14).
 # ponytail: dpkg --compare-versions en vez de parseo propio de versiones
 # Compatible es cualquier kernel anterior a 6.19, no solo el GA 6.8: los HWE
 # 6.11, 6.14 y 6.17 arrancan mongod igual, y Mint 22.2 viene con 6.14. Un equipo

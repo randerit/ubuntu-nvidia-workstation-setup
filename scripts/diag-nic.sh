@@ -22,12 +22,12 @@
 #     unos segundos es UNA senal; hace falta evidencia combinada.
 #
 # Uso:
-#   sudo ./diag-nic.sh <interfaz> [duracion_captura_seg] [gateway_prueba]
+#   sudo ./scripts/diag-nic.sh <interfaz> [duracion_captura_seg] [gateway_prueba]
 #
 # Ejemplos:
-#   sudo ./diag-nic.sh enp13s0
-#   sudo ./diag-nic.sh enp13s0 30
-#   sudo ./diag-nic.sh enp13s0 30 192.0.2.1   # 192.0.2.1 = IP de documentacion; usa tu gateway
+#   sudo ./scripts/diag-nic.sh enp13s0
+#   sudo ./scripts/diag-nic.sh enp13s0 30
+#   sudo ./scripts/diag-nic.sh enp13s0 30 192.0.2.1   # 192.0.2.1 = IP de documentacion; usa tu gateway
 #
 # Codigos de salida (utiles para consolidar flota):
 #   0 = sin hallazgos por encima de informativo
@@ -683,7 +683,7 @@ else
       fi ;;
     1)
       warn "No hay r8125.ko en ${GA_KVER}/updates. Si esta placa es un RTL8125D, reiniciar al GA deja el equipo SIN RED."
-      warn "Enfoque fail-safe del proyecto: preparar el driver ANTES del reboot (sudo nic-driver-rescue, o ./fix-r8125-downgrade-6.8.sh)."
+      warn "Enfoque fail-safe del proyecto: preparar el driver ANTES del reboot (sudo nic-driver-rescue, o ./scripts/fix-r8125-downgrade-6.8.sh)."
       f_warn PERSIST "Sin r8125 construido para el GA ${GA_KVER}: NO reiniciar al GA hasta prepararlo (fail-safe del Caso C, aunque el XID no sea 688)"
       GA_READY="falta" ;;
     2)

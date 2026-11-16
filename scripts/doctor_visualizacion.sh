@@ -1,12 +1,12 @@
 #!/bin/bash
 # =============================================================================
-# Doctor de Verificación - Estaciones de Compresión
+# Doctor de Verificación - Estaciones de Visualización
 # Verifica que todos los componentes necesarios estén instalados correctamente.
-# Basado en las secciones 3-6 de la guía de configuración.
+# Basado en las secciones 3-6 de la guía de configuración (sin el stack de video).
 #
-# Uso:
-#   ./doctor_compresion.sh          Solo verificar
-#   ./doctor_compresion.sh --fix    Verificar e instalar faltantes
+# Uso (los --skip-* los pasa workstation-dependencies con los mismos flags de la instalación):
+#   ./scripts/doctor_visualizacion.sh          Solo verificar
+#   ./scripts/doctor_visualizacion.sh --fix    Verificar e instalar faltantes
 # =============================================================================
 
 set -uo pipefail
@@ -21,7 +21,7 @@ parse_args "$@"
 # =============================================================================
 echo ""
 echo -e "${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║     Doctor de Verificación - Estación de Compresión        ║${NC}"
+echo -e "${BOLD}║     Doctor de Verificación - Estación de Visualización     ║${NC}"
 echo -e "${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  Fecha: $(date '+%Y-%m-%d %H:%M:%S')"
@@ -146,85 +146,34 @@ if command -v ufw > /dev/null 2>&1; then
     info "UFW: ${ufw_status}"
 fi
 
-# --- 5. Drivers NVIDIA (Sección 4) ---
-section "5. Drivers NVIDIA" "nvidia-cuda-setup"
+# --- 5. Docker, ffmpeg y MQTTX (base común del instalador) ---
+section "5. Docker, ffmpeg y MQTTX" "workstation-dependencies"
 
-check_manual "nvidia-smi disponible" \
-    "command -v nvidia-smi" \
-    "Instala drivers NVIDIA siguiendo la sección 4 de la guía"
+check_and_fix_warn "Docker instalado" \
+    "command -v docker" \
+    "fix_apt docker.io"
+check_and_fix_warn "Servicio Docker activo" \
+    "systemctl is-active docker" \
+    "sudo systemctl enable --now docker"
+check_and_fix_warn "Docker Compose disponible (docker compose)" \
+    "docker compose version" \
+    "fix_apt docker-compose-v2"
+check_and_fix_warn "ffmpeg instalado" \
+    "command -v ffmpeg" \
+    "fix_apt ffmpeg"
+check_and_fix_warn "MQTTX instalado" \
+    "pkg_installed mqttx" \
+    "fix_deb_url '${MQTTX_URL}'"
 
-if command -v nvidia-smi > /dev/null 2>&1; then
-    if nvidia-smi > /dev/null 2>&1; then
-        echo -e "  ${PASS} Driver NVIDIA funcionando"
-        passed=$((passed + 1))
-        total=$((total + 1))
-
-        driver_version=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)
-        gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
-        gpu_mem=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader 2>/dev/null | head -1)
-
-        info "GPU: ${gpu_name}"
-        info "Driver: ${driver_version}"
-        info "VRAM: ${gpu_mem}"
-    else
-        echo -e "  ${FAIL} nvidia-smi existe pero falla al ejecutar"
-        failed=$((failed + 1))
-        total=$((total + 1))
-    fi
-else
-    info "nvidia-smi no encontrado, omitiendo detalles de GPU"
-fi
-
-check_and_fix "Módulo NVIDIA cargado en kernel" "check_nvidia_kernel_module"
-check_and_fix "GPU NVIDIA detectada" "check_nvidia_gpu"
-
-# El manual fija la rama 580.x.x e instala por .run, nunca por APT (Secciones 3 y 4)
-check_manual "Driver en la rama ${NVIDIA_BRANCH_EXPECTED}.x.x (fijada por el manual)" \
-    "check_nvidia_branch" \
-    "El manual fija la familia ${NVIDIA_BRANCH_EXPECTED}. Revisa la Sección 4 y el Anexo B antes de cambiar de rama."
-check_manual "Driver instalado por .run y no por APT" \
-    "check_nvidia_not_from_apt" \
-    "Hay paquetes nvidia-* de APT instalados. La Sección 4 los trata como error: purga con 'sudo apt purge ^nvidia-.* ^libnvidia-.* ^cuda-drivers.*' y reinstala por .run."
-check_and_fix_warn "Módulo open/MIT-GPL (recomendado para RTX 20/30/40/50)" \
-    "check_nvidia_open_module"
-
-# --- 6. CUDA Toolkit (Sección 5) ---
-section "6. CUDA Toolkit" "nvidia-cuda-setup"
-
-# Detectar CUDA desde el filesystem si no está en el PATH
-detect_cuda_from_system
-
-check_manual "nvcc (compilador CUDA) disponible" \
-    "command -v nvcc" \
-    "Instala CUDA Toolkit siguiendo la sección 5 de la guía"
-
-if command -v nvcc > /dev/null 2>&1; then
-    cuda_version=$(nvcc --version 2>/dev/null | grep "release" | sed 's/.*release //' | sed 's/,.*//')
-    info "CUDA: ${cuda_version}"
-fi
-
-check_and_fix "PATH incluye CUDA" "echo \"\$PATH\" | grep -qi cuda"
-check_and_fix "LD_LIBRARY_PATH incluye CUDA" "echo \"\${LD_LIBRARY_PATH:-}\" | grep -qi cuda"
-check_and_fix "Configuración CUDA en el sistema" "check_cuda_configured"
-check_manual "CUDA Toolkit coherente (nvcc, symlink y paquete en la misma versión)" \
-    "check_cuda_coherente" \
-    "nvcc dice $(cuda_version_nvcc), /usr/local/cuda apunta a $(cuda_version_symlink) y dpkg sostiene: $(cuda_versions_paquete | tr '\n' ' '). Todo lo que corra bajo sudo o como servicio usa el symlink, no tu PATH. Fijalo: sudo update-alternatives --set cuda /usr/local/cuda-VERSION"
-# La versión del manual es la preferida, no la única válida: el instalador .deb
-# 2.9.0+ adopta la que el equipo ya tenga. Se informa, no se reprueba.
-if ! check_cuda_version; then
-    info "CUDA $(cuda_version_en_uso) en uso; la Sección 5 fija la ${CUDA_VERSION_EXPECTED}"
-    info "No es un error mientras todas las fuentes apunten a la misma versión"
-fi
-
-# --- 7. MongoDB (Sección 6) ---
-section "7. MongoDB" "workstation-dependencies"
+# --- 6. Kernel y red ---
+section "6. Kernel y Red" "nvidia-cuda-setup"
 
 if $SKIP_MONGODB; then
     info "MongoDB omitido (este equipo no usa MongoDB): el chequeo de kernel de MongoDB no aplica"
 else
     check_manual "Kernel compatible con MongoDB 8 (fuera de 6.19-7.0.13)" \
         "check_kernel_mongodb_ok" \
-        "Kernel $(uname -r) bloquea el arranque de mongod (SERVER-121912). Aplica la Sección 14 del README: arrancar en un kernel anterior a 6.19 (el 6.8 GA, o el 6.11/6.14 si el equipo ya lo tiene)."
+        "Kernel $(uname -r) bloquea el arranque de mongod (SERVER-121912). Aplica la Sección 14 (docs/14-runbook-mongodb8-kernel.md): arrancar en un kernel anterior a 6.19 (el 6.8 GA, o el 6.11/6.14 si el equipo ya lo tiene)."
 fi
 check_manual "Pin del kernel persistente (bloquea 6.19+)" \
     "check_kernel_pin" \
@@ -238,97 +187,52 @@ check_and_fix_warn "Módulos DKMS construidos para el kernel en ejecución" \
 check_manual "Sin blacklist de r8169 (mata las RTL8168/8111)" \
     "check_no_r8169_blacklist" \
     "Hay un blacklist de r8169 en /etc/modprobe.d/. Sacalo: mata las RTL8168/8111 y no hace falta, porque el r8169 libera el device cuando no soporta la revision y ahi lo toma el r8125."
+
+# --- 7. MongoDB ---
+section "7. MongoDB" "workstation-dependencies"
+
 check_bloque_mongodb
 
-# --- 8. EMQX (Sección 6) ---
+# --- 8. EMQX ---
 section "8. EMQX (Broker MQTT)" "workstation-dependencies"
 
 check_bloque_emqx
 
-# --- 9. Golang (Sección 6) ---
-section "9. Golang" "workstation-dependencies"
+# --- 9. AnyDesk ---
+section "9. AnyDesk (Acceso Remoto)" "workstation-dependencies"
 
-check_and_fix_nota "Go instalado" "command -v go" "fix_snap go"
-
-if command -v go > /dev/null 2>&1; then
-    go_version=$(go version 2>/dev/null || echo "desconocida")
-    info "${go_version}"
-fi
-
-# --- 10. Visual Studio Code (Sección 6) ---
-section "10. Visual Studio Code" "workstation-dependencies"
-
-check_and_fix_nota "VSCode instalado" "command -v code" "fix_snap code"
-
-if command -v code > /dev/null 2>&1; then
-    code_version=$(code --version 2>/dev/null | head -1 || echo "desconocida")
-    info "VSCode: ${code_version}"
-fi
-
-# --- 11. GStreamer (Sección 6) ---
-section "11. GStreamer y Plugins" "workstation-dependencies"
-
-check_and_fix "GStreamer instalado (gst-launch-1.0)" \
-    "command -v gst-launch-1.0" \
-    "fix_apt gstreamer1.0-tools"
-check_and_fix "gst-inspect-1.0 disponible" \
-    "command -v gst-inspect-1.0" \
-    "fix_apt gstreamer1.0-tools"
-check_and_fix "Plugin base" \
-    "pkg_installed gstreamer1.0-plugins-base" \
-    "fix_apt gstreamer1.0-plugins-base"
-check_and_fix "Plugin good" \
-    "pkg_installed gstreamer1.0-plugins-good" \
-    "fix_apt gstreamer1.0-plugins-good"
-check_and_fix "Plugin bad" \
-    "pkg_installed gstreamer1.0-plugins-bad" \
-    "fix_apt gstreamer1.0-plugins-bad"
-check_and_fix "Plugin ugly" \
-    "pkg_installed gstreamer1.0-plugins-ugly" \
-    "fix_apt gstreamer1.0-plugins-ugly"
-check_and_fix "Plugin libav" \
-    "pkg_installed gstreamer1.0-libav" \
-    "fix_apt gstreamer1.0-libav"
-check_and_fix "Plugin RTSP" \
-    "pkg_installed gstreamer1.0-rtsp" \
-    "fix_apt gstreamer1.0-rtsp"
-check_and_fix "Plugin tools" \
-    "pkg_installed gstreamer1.0-tools" \
-    "fix_apt gstreamer1.0-tools"
-check_and_fix "Plugin X11" \
-    "pkg_installed gstreamer1.0-x" \
-    "fix_apt gstreamer1.0-x"
-check_and_fix "Plugin ALSA" \
-    "pkg_installed gstreamer1.0-alsa" \
-    "fix_apt gstreamer1.0-alsa"
-check_and_fix "Plugin OpenGL" \
-    "pkg_installed gstreamer1.0-gl" \
-    "fix_apt gstreamer1.0-gl"
-check_and_fix "Plugin GTK3" \
-    "pkg_installed gstreamer1.0-gtk3" \
-    "fix_apt gstreamer1.0-gtk3"
-check_and_fix "Plugin Qt5" \
-    "pkg_installed gstreamer1.0-qt5" \
-    "fix_apt gstreamer1.0-qt5"
-check_and_fix "Plugin PulseAudio" \
-    "pkg_installed gstreamer1.0-pulseaudio" \
-    "fix_apt gstreamer1.0-pulseaudio"
-check_and_fix_warn "Plugin NVIDIA (nvh264enc)" "gst-inspect-1.0 nvh264enc"
-check_and_fix_warn "Plugin rtspclientsink" "gst-inspect-1.0 rtspclientsink"
-
-# --- 12. Herramientas de Red y Soporte Remoto (Sección 6) ---
-section "12. Herramientas de Red y Soporte Remoto" "workstation-dependencies"
-
-check_and_fix_nota "Angry IP Scanner instalado" \
-    "command -v ipscan" \
-    "fix_deb_url '${IPSCAN_URL}'"
 check_bloque_anydesk
-check_and_fix_nota "RustDesk instalado" \
-    "command -v rustdesk" \
-    "fix_deb_url '${RUSTDESK_URL}'"
 
-# --- 13. Puertos (Sección 6) ---
-section "13. Puertos y Conectividad" "workstation-hardening"
+# --- 10. Golang ---
+section "10. Golang" "workstation-dependencies"
+
+if $SKIP_SNAPS; then
+    info "Go omitido (--skip-snaps): este equipo no lo instala"
+else
+    check_and_fix_nota "Go instalado" "command -v go" "fix_snap go"
+
+    if command -v go > /dev/null 2>&1; then
+        go_version=$(go version 2>/dev/null || echo "desconocida")
+        info "${go_version}"
+    fi
+fi
+
+# --- 11. Visual Studio Code ---
+section "11. Visual Studio Code" "workstation-dependencies"
+
+if $SKIP_SNAPS; then
+    info "VSCode omitido (--skip-snaps): este equipo no lo instala"
+else
+    check_and_fix_nota "VSCode instalado" "command -v code" "fix_snap code"
+
+    if command -v code > /dev/null 2>&1; then
+        code_version=$(code --version 2>/dev/null | head -1 || echo "desconocida")
+        info "VSCode: ${code_version}"
+    fi
+fi
+
+# --- 12. Puertos ---
+section "12. Puertos y Conectividad" "workstation-hardening"
 
 check_and_fix "Conexión a internet" "ping -c 1 -W 3 8.8.8.8"
 check_and_fix "Resolución DNS" "host google.com"
@@ -337,16 +241,13 @@ ufw_capturar_estado
 if ufw_esta_activo; then
     info "Verificando reglas de firewall..."
     check_puertos_ufw_base
-    check_and_fix_minor "Puerto GStreamer RTSP (554) configurado" \
-        "grep -qE '(^|[^0-9])554(/|[^0-9]|\$)' <<<\"\$UFW_STATUS\"" \
-        "sudo ufw allow 554/tcp && sudo ufw allow 554/udp"
     check_puertos_ufw_anydesk
 else
     ufw_informar_no_activo
 fi
 
-# --- 14. Versión de Ubuntu específica ---
-section "14. Dependencias Específicas por Versión" "nvidia-cuda-setup"
+# --- 13. Versión de Ubuntu específica ---
+section "13. Dependencias Específicas por Versión" "nvidia-cuda-setup"
 
 if [[ "$ubuntu_version" == "24.04"* ]]; then
     check_and_fix_nota "libtinfo5 instalado (24.04: opcional; solo si CUDA o una herramienta antigua la pide. Se instala con nvidia-cuda-setup --libtinfo5)" \
@@ -358,5 +259,6 @@ elif [[ "$ubuntu_version" == "22.04"* ]]; then
 fi
 
 # =============================================================================
-print_summary "compresión"
+print_summary "visualización"
+# shellcheck disable=SC2154  # failed lo define y lo incrementa doctor_lib.sh
 exit $((failed > 255 ? 1 : failed))
